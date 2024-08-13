@@ -138,9 +138,6 @@ if (Test-Path .\build\python\python.exe) {
   Add-Content -Path .\build\python\python*._pth -Value 'import site'
 }
 
-# Clone additional Pico-specific submodules in TinyUSB
-exec { git -C .\build\pico-sdk\lib\tinyusb submodule update --init --depth=1 hw\mcu\raspberry_pi }
-
 $sdkVersion = (cmake -P .\packages\pico-setup-windows\pico-sdk-version.cmake -N | Select-String -Pattern 'PICO_SDK_VERSION_STRING=(.*)$').Matches.Groups[1].Value
 if (-not ($sdkVersion -match $versionRegEx)) {
   Write-Error 'Could not determine Pico SDK version.'
@@ -208,7 +205,7 @@ if (-not (Test-Path ".\build\openocd-install\mingw$bitness")) {
 }
 
 if (-not (Test-Path ".\build\picotool-install\mingw$bitness")) {
-  msys "cd build && ../packages/picotool/build-picotool.sh $bitness $mingw_arch"
+  msys "cd build && ../packages/picotool/build-picotool.sh $bitness $mingw_arch $version"
 }
 
 $template = Get-Content ".\packages\pico-sdk-tools\pico-sdk-tools-config-version.cmake" -Raw
@@ -324,6 +321,7 @@ Section "Uninstall"
   RMDir /r /REBOOTOK "`$INSTDIR\openocd"
   RMDir /r /REBOOTOK "`$INSTDIR\python"
 
+  RMDir /r /REBOOTOK "`$INSTDIR\pico-sdk"
   RMDir /r /REBOOTOK "`$INSTDIR\pico-sdk-tools"
   RMDir /r /REBOOTOK "`$INSTDIR\picotool"
   RMDir /r /REBOOTOK "`$INSTDIR\resources"
@@ -336,6 +334,7 @@ Section "Uninstall"
   Delete /REBOOTOK "`$INSTDIR\pico-setup.lnk"
   Delete /REBOOTOK "`$INSTDIR\ReadMe.txt"
   Delete /REBOOTOK "`$INSTDIR\version.ini"
+  Delete /REBOOTOK "`$INSTDIR\pico-examples.zip"
 
   Delete /REBOOTOK "`$INSTDIR\uninstall.exe"
 
@@ -555,11 +554,11 @@ Section "-Pico environment" SecPico
   File /r "build\pico-sdk\*.*"
 
   SetOutPath "`$INSTDIR\pico-sdk-tools"
-  File "build\pico-sdk-tools\mingw$bitness\*.*"
+  File /r "build\pico-sdk-tools\mingw$bitness\*.*"
   WriteRegStr `${PICO_REG_ROOT} "Software\Kitware\CMake\Packages\pico-sdk-tools" "v$sdkVersion" "`$INSTDIR\pico-sdk-tools"
 
   SetOutPath "`$INSTDIR\picotool"
-  File "build\picotool-install\mingw$bitness\*.*"
+  File "build\picotool-install\mingw$bitness\picotool\*.*"
 
   SetOutPath "`$INSTDIR"
   File "build\pico-examples.zip"
@@ -615,6 +614,7 @@ Section "-Pico environment" SecPico
   CreateDirectory "`${PICO_SHORTCUTS_DIR}\Pico - Documentation"
   WriteINIStr "`${PICO_SHORTCUTS_DIR}\Pico - Documentation\Pico Datasheet.url" "InternetShortcut" "URL" "https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf"
   WriteINIStr "`${PICO_SHORTCUTS_DIR}\Pico - Documentation\Pico W Datasheet.url" "InternetShortcut" "URL" "https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf"
+  WriteINIStr "`${PICO_SHORTCUTS_DIR}\Pico - Documentation\Pico 2 Datasheet.url" "InternetShortcut" "URL" "https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf"
   WriteINIStr "`${PICO_SHORTCUTS_DIR}\Pico - Documentation\Pico C C++ SDK.url" "InternetShortcut" "URL" "https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-c-sdk.pdf"
   WriteINIStr "`${PICO_SHORTCUTS_DIR}\Pico - Documentation\Pico Python SDK.url" "InternetShortcut" "URL" "https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-python-sdk.pdf"
 
@@ -654,9 +654,8 @@ $env:__COMPAT_LAYER = ""
 # Sign files before packaging up the installer
 sign "build\uninstall-$suffix.exe",
 "build\openocd-install\mingw$bitness\bin\openocd.exe",
-"build\pico-sdk-tools\mingw$bitness\elf2uf2.exe",
-"build\pico-sdk-tools\mingw$bitness\pioasm.exe",
-"build\picotool-install\mingw$bitness\picotool.exe"
+"build\pico-sdk-tools\mingw$bitness\pioasm\pioasm.exe",
+"build\picotool-install\mingw$bitness\picotool\picotool.exe"
 
 exec { .\build\NSIS\makensis ".\$basename-$suffix.nsi" }
 Write-Host "Installer saved to $binfile"
